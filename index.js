@@ -104,8 +104,9 @@ app.get('/test', async function (req, res) {
         'title':'Tails'
       }]
       //const poll = await controller.createPoll(accessToken, userId, 'Heads or tails?', choices, 15);
-      const prediction = await controller.createPrediction(accessToken, userId, "Heads or tails?", choices, 30);
-      res.json([polls, gameAnalytics, bitsLeaderboard]);
+      //const prediction = await controller.createPrediction(accessToken, userId, "Heads or tails?", choices, 30);
+      const predictions = await controller.getPredictions(accessToken, userId);
+      res.json([polls, gameAnalytics, bitsLeaderboard, predictions]);
       //console.log(gameAnalytics);
       //console.log(bitsLeaderboard);
     } catch (error) {

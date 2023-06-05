@@ -43,8 +43,15 @@ async function getPolls(accessToken, userId) {
     return response.data;
 }
 
-// Function to create a poll
-// choices: [ {"title":"Heads"}, {"title":"tails"} ]
+/**
+ * Function to create a poll
+ * @param {string} accessToken 
+ * @param {string} userId user id
+ * @param {string} pollTitle 
+ * @param {Array} pollChoices choices: [ {"title":"Heads"}, {"title":"tails"} ]
+ * @param {integer} pollDuration 
+ * @returns Data
+ */
 async function createPoll(accessToken, userId, pollTitle, pollChoices, pollDuration=15) {
     const response = await axios.post(`https://api.twitch.tv/helix/polls`, {
             'broadcaster_id': userId,
@@ -56,6 +63,25 @@ async function createPoll(accessToken, userId, pollTitle, pollChoices, pollDurat
         'Client-ID': TWITCH_CLIENT_ID,
         'Authorization': `Bearer ${accessToken}`
         }
+    });
+    return response.data;
+}
+
+/**
+ * Function to get predictions
+ * @param {*} accessToken 
+ * @param {*} userId 
+ * @returns 
+ */
+async function getPredictions(accessToken, userId) {
+    const response = await axios.get(`https://api.twitch.tv/helix/predictions`, {
+        headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${accessToken}`
+        },
+        params: {
+            broadcaster_id: userId
+        },
     });
     return response.data;
 }
@@ -89,5 +115,6 @@ module.exports = {
     getBitsLeaderboard,
     getPolls,
     createPoll,
+    getPredictions,
     createPrediction
 }
