@@ -1,4 +1,4 @@
 # DvdTwitchApp
 Application for Twitch
 
-Live at [https://](https://www.twitch.tv/dvd622)
+Live at [Twitch](https://www.twitch.tv/dvd622)
