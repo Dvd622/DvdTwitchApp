@@ -80,7 +80,7 @@ passport.use('twitch', new OAuth2Strategy({
 ));
 
 // Set route to start OAuth link, this is where you define scopes to request
-app.get('/auth/twitch', passport.authenticate('twitch', { scope: 'user:read:email analytics:read:games channel:read:subscriptions bits:read channel:manage:polls channel:manage:predictions' }));
+app.get('/auth/twitch', passport.authenticate('twitch', { scope: 'user:read:email analytics:read:games channel:read:subscriptions bits:read channel:manage:polls channel:manage:predictions channel:manage:redemptions' }));
 
 // Set route for OAuth redirect
 app.get('/auth/twitch/callback', passport.authenticate('twitch', { successRedirect: '/', failureRedirect: '/fail' }));
@@ -96,6 +96,8 @@ app.get('/test', async function (req, res) {
       const gameAnalytics = await controller.getAnalyticsGames(accessToken);
       const bitsLeaderboard = await controller.getBitsLeaderboard(accessToken);
       const polls = await controller.getPolls(accessToken, userId);
+      const rewards = await controller.getCustomReward(accessToken, userId, true);
+      //const rewardRedemptions = await controller.getCustomRewardRedemptions(accessToken, userId, 'reward-id', 'UNFULFILLED')
 
       var choices = [{
         'title':'Heads'
@@ -107,6 +109,9 @@ app.get('/test', async function (req, res) {
       //const prediction = await controller.createPrediction(accessToken, userId, "Heads or tails?", choices, 30);
       const predictions = await controller.getPredictions(accessToken, userId);
       res.json([polls, gameAnalytics, bitsLeaderboard, predictions]);
+      console.log(predictions['data'][0]);
+      //console.log(rewardRedemptions);
+      console.log(rewards);
       //console.log(gameAnalytics);
       //console.log(bitsLeaderboard);
     } catch (error) {

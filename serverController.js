@@ -37,7 +37,7 @@ async function getPolls(accessToken, userId) {
         'Authorization': `Bearer ${accessToken}`
         },
         params: {
-            broadcaster_id: userId
+            'broadcaster_id': userId
         },
     });
     return response.data;
@@ -80,7 +80,7 @@ async function getPredictions(accessToken, userId) {
         'Authorization': `Bearer ${accessToken}`
         },
         params: {
-            broadcaster_id: userId
+            'broadcaster_id': userId
         },
     });
     return response.data;
@@ -109,6 +109,71 @@ async function createPrediction(accessToken, userId, predictionTitle, prediction
     return response.data;
 }
 
+/**
+ * Function to create custom reward
+ * @param {*} accessToken 
+ * @param {*} userId 
+ * @param {Integer} cost cost of the reward, minimum 1
+ * @param {*} prompt prompt/description, max 200 chars
+ * @returns 
+ */
+ async function createCustomReward(accessToken, userId, cost, prompt) {
+    const response = await axios.post(`https://api.twitch.tv/helix/channel_points/custom_rewards`, {
+            'broadcaster_id': userId,
+            'cost': cost,
+            'prompt': prompt
+        }, {
+        headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${accessToken}`
+        }
+    });
+    return response.data;
+}
+
+/**
+ * Function to get custom reward info
+ * @param {*} accessToken 
+ * @param {*} userId 
+ * @param {Boolean} manageable get custom rewards that are only manageable by this app
+ * @returns 
+ */
+ async function getCustomReward(accessToken, userId, manageable) {
+    const response = await axios.get(`https://api.twitch.tv/helix/channel_points/custom_rewards`, {
+        headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${accessToken}`
+        },
+        params: {
+            'broadcaster_id': userId,
+            'only_manageable_rewards': manageable
+        },
+    });
+    return response.data;
+}
+
+/**
+ * Function to get custom reward redemptions
+ * @param {*} accessToken 
+ * @param {*} userId 
+ * @param {*} rewardId reward to get
+ * @param {*} redemptionStatus CANCELED / FULFILLED / UNFULFILLED
+ * @returns 
+ */
+ async function getCustomRewardRedemptions(accessToken, userId, rewardId, redemptionStatus) {
+    const response = await axios.get(`https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions`, {
+        headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${accessToken}`
+        },
+        params: {
+            'broadcaster_id': userId,
+            'reward_id': rewardId,
+            'status': redemptionStatus
+        },
+    });
+    return response.data;
+}
 
 module.exports = {
     getAnalyticsGames,
@@ -116,5 +181,8 @@ module.exports = {
     getPolls,
     createPoll,
     getPredictions,
-    createPrediction
+    createPrediction,
+    createCustomReward,
+    getCustomReward,
+    getCustomRewardRedemptions
 }
