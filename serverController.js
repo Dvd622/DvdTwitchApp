@@ -113,13 +113,15 @@ async function createPrediction(accessToken, userId, predictionTitle, prediction
  * Function to create custom reward
  * @param {*} accessToken 
  * @param {*} userId 
+ * @param {*} title max 45 chars
  * @param {Integer} cost cost of the reward, minimum 1
  * @param {*} prompt prompt/description, max 200 chars
  * @returns 
  */
- async function createCustomReward(accessToken, userId, cost, prompt) {
+ async function createCustomReward(accessToken, userId, title, cost, prompt) {
     const response = await axios.post(`https://api.twitch.tv/helix/channel_points/custom_rewards`, {
             'broadcaster_id': userId,
+            'title': title,
             'cost': cost,
             'prompt': prompt
         }, {

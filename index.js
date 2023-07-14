@@ -16,9 +16,10 @@ const SESSION_SECRET   = 'test123';
 const CALLBACK_URL     = 'http://localhost:3000/auth/twitch/callback';  // You can run locally with - http://localhost:3000/auth/twitch/callback
 
 // Initialize Express and middlewares
-var app = express();
+const app = express();
 app.use(session({secret: SESSION_SECRET, resave: false, saveUninitialized: false}));
 app.use(express.static('public'));
+app.use(express.urlencoded({extended: true})); 
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -116,7 +117,7 @@ app.get('/test', async function (req, res) {
       //console.log(bitsLeaderboard);
     } catch (error) {
       console.error(error);
-    res.status(500).json({ message: 'An error occurred while fetching test' });
+      res.status(500).json({ message: 'An error occurred while fetching test' });
     }
   } else {
     res.redirect('/');
@@ -140,7 +141,69 @@ var template = handlebars.compile(`
     <tr><th>Test:</th><td>{{test}}</td></tr>
     <tr><td><img src={{image_url}} alt="Dvd Profile Image"></td></tr>
     <button onClick="location.href = '/test'">Click me!!!</button>
+    <button onClick="location.href = '/redeem'">Custom Redeem Testing</button>
 </table></html>`);
+
+async function testFunc(testVar) {
+  console.log(testVar);
+}
+
+var redeemTemplate = handlebars.compile(`
+<html>
+  <script src="index.js"></script>
+
+  <head><title>Custom Redeem</title></head>
+  <form method="POST" action="/redeem">
+    <label for="titleId">Title: </label><input id="titleId" name="title" type="text">
+    <br><br>
+    <label for="costId">Cost: </label><input type="number" id="costId" name="cost" type="text">
+    <br><br>
+    <label for="promptId">Prompt: </label><input id="promptId" name="prompt" type="text">
+    <br><br>
+    <button type="submit">Submit</button>
+  </form>
+  <br><br>
+  <p id="testId">Test Text</p>
+
+  <script>
+  function submitRedeem() {
+    var title = document.getElementById("titleId").value;
+    var cost = document.getElementById("costId").value;
+    var prompt = document.getElementById("promptId").value;
+    document.getElementById("testId").innerHTML = title + cost + prompt;
+    testFunc([title, cost, prompt]);
+  }
+  </script>
+</html>
+`);
+
+app.get('/redeem', function (req, res) {
+  if(req.session && req.session.passport && req.session.passport.user) {
+    res.send(redeemTemplate(req.session.passport.user));
+  } else {
+    res.redirect('/');
+  }
+});
+
+app.post('/redeem', async function(req, res) {
+  if(req.session && req.session.passport && req.session.passport.user) {
+    try {
+      accessToken = req.session.passport.user.accessToken;
+      userId = req.session.passport.user.id;
+      var title = req.body.title;
+      var cost = req.body.cost;
+      var prompt = req.body.prompt;
+      const customReward = await controller.createCustomReward(accessToken, userId, title, cost, prompt);
+      res.send(req.body);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'An error occurred while posting redeem' });
+    }
+  } else {
+    res.redirect('/');
+  }
+  
+});
 
 // If user has an authenticated session, display it, otherwise display link to authenticate
 app.get('/', function (req, res) {
