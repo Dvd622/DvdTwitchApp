@@ -131,18 +131,24 @@ app.get('/fail', function (req, res) {
 
 // Define a simple template to safely generate HTML with values from user's profile
 var template = handlebars.compile(`
-<html><head><title>Twitch Auth Sample</title></head>
-<table>
-    <tr><th>Access Token</th><td>yes</td></tr>
-    <tr><th>Refresh Token</th><td>yes</td></tr>
-    <tr><th>Display Name</th><td>{{display_name}}</td></tr>
-    <tr><th>Bio</th><td>{{bio}}</td></tr>
-    <tr><th>Image</th><td>{{logo}}</td></tr>
-    <tr><th>Test:</th><td>{{test}}</td></tr>
-    <tr><td><img src={{image_url}} alt="Dvd Profile Image"></td></tr>
-    <button onClick="location.href = '/test'">Click me!!!</button>
-    <button onClick="location.href = '/redeem'">Custom Redeem Testing</button>
-</table></html>`);
+<html>
+  <head><title>Twitch Auth Sample</title></head>
+  <style>
+    body {background-color: #D3D3D3;}
+  </style>
+  <table>
+      <tr><th>Access Token</th><td>yes</td></tr>
+      <tr><th>Refresh Token</th><td>yes</td></tr>
+      <tr><th>Display Name</th><td>{{display_name}}</td></tr>
+      <tr><th>Bio</th><td>{{bio}}</td></tr>
+      <tr><th>Image</th><td>{{logo}}</td></tr>
+      <tr><th>Test:</th><td>{{test}}</td></tr>
+      <tr><td><img src={{image_url}} alt="Dvd Profile Image"></td></tr>
+      <button onClick="location.href = '/test'">Click me!!!</button>
+      <button onClick="location.href = '/redeem'">Custom Redeem Testing</button>
+  </table>
+</html>
+`);
 
 async function testFunc(testVar) {
   console.log(testVar);
@@ -150,7 +156,9 @@ async function testFunc(testVar) {
 
 var redeemTemplate = handlebars.compile(`
 <html>
-  <script src="index.js"></script>
+  <style>
+  body {background-color: #D3D3D3;}
+  </style>
 
   <head><title>Custom Redeem</title></head>
   <form method="POST" action="/redeem">
@@ -185,6 +193,31 @@ app.get('/redeem', function (req, res) {
   }
 });
 
+// TO DO: twitch EventSub to listen/get redemption events + maybe udpate HTML page with endpoint calls
+// HTML Page update: https://stackoverflow.com/questions/43523576/update-part-of-html-page-using-node-js-and-ejs
+// Twitch EventSub: https://dev.twitch.tv/docs/eventsub/handling-webhook-events/
+// set up ngrok
+// setInterval bad sadge
+app.get('/redeem/start', async function (req, res) {
+  if(req.session && req.session.passport && req.session.passport.user) {
+    try {
+      accessToken = req.session.passport.user.accessToken;
+      userId = req.session.passport.user.id;
+      const rewards = await controller.getCustomReward(accessToken, userId, true);
+      rewardId = rewards["data"][0]["id"];
+      const customRewardRedemptions = await controller.getCustomRewardRedemptions(accessToken, userId, rewardId, "UNFULFILLED");
+      //res.send(redeemTemplate(req.session.passport.user));
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: 'An error occurred while starting redeem check' });
+    }
+    
+  } else {
+    res.redirect('/');
+  }
+});
+
+
 app.post('/redeem', async function(req, res) {
   if(req.session && req.session.passport && req.session.passport.user) {
     try {
@@ -210,7 +243,7 @@ app.get('/', function (req, res) {
   if(req.session && req.session.passport && req.session.passport.user) {
     res.send(template(req.session.passport.user));
   } else {
-    res.send('<html><head><title>Twitch Auth Sample</title></head> <a href="/auth/twitch">test</a><br><a href="/auth/twitch/test">test2</a></html>');
+    res.send('<html><head><title>Twitch Auth Sample</title></head> <style>body {background-color: #D3D3D3;}</style><a href="/auth/twitch">test</a><br><a href="/auth/twitch/test">test2</a></html>');
   }
 });
 
