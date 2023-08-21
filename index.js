@@ -7,13 +7,19 @@ const request        = require('request');
 const handlebars     = require('handlebars');
 const axios          = require('axios');
 const controller     = require('./serverController');
+const fs             = require('fs');
+const bodyParser     = require('body-parser')
+const https          = require('https')
+const crypto         = require('crypto')
 require('dotenv').config();
 
-// Define our constants, you will change these with your own
+// Define our constants
 const TWITCH_CLIENT_ID = process.env.CLIENT_ID;
 const TWITCH_SECRET    = process.env.SECRET_KEY;
-const SESSION_SECRET   = 'test123';
+const NGROK_URL        = process.env.NGROK_TUNNEL_URL;
+const SESSION_SECRET   = 'testSecret1234567890';
 const CALLBACK_URL     = 'http://localhost:3000/auth/twitch/callback';  // You can run locally with - http://localhost:3000/auth/twitch/callback
+let appAccessToken = 'db3rosyuahy9l4tqzsnnd2xk1tj3e2';
 
 // Initialize Express and middlewares
 const app = express();
@@ -22,6 +28,13 @@ app.use(express.static('public'));
 app.use(express.urlencoded({extended: true})); 
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(bodyParser.json({
+  verify: (req, res, buf) => {
+      // Small modification to the JSON bodyParser to expose the raw body in the request object
+      // The raw body is required at signature verification
+      req.rawBody = buf
+  }
+}))
 
 // Override passport profile function to get user profile from Twitch API
 OAuth2Strategy.prototype.userProfile = function(accessToken, done) {
@@ -81,7 +94,7 @@ passport.use('twitch', new OAuth2Strategy({
 ));
 
 // Set route to start OAuth link, this is where you define scopes to request
-app.get('/auth/twitch', passport.authenticate('twitch', { scope: 'user:read:email analytics:read:games channel:read:subscriptions bits:read channel:manage:polls channel:manage:predictions channel:manage:redemptions' }));
+app.get('/auth/twitch', passport.authenticate('twitch', { scope: 'user:read:email analytics:read:games channel:read:subscriptions bits:read channel:manage:polls channel:manage:predictions channel:manage:redemptions moderator:read:followers' }));
 
 // Set route for OAuth redirect
 app.get('/auth/twitch/callback', passport.authenticate('twitch', { successRedirect: '/', failureRedirect: '/fail' }));
@@ -110,11 +123,23 @@ app.get('/test', async function (req, res) {
       //const prediction = await controller.createPrediction(accessToken, userId, "Heads or tails?", choices, 30);
       const predictions = await controller.getPredictions(accessToken, userId);
       res.json([polls, gameAnalytics, bitsLeaderboard, predictions]);
-      console.log(predictions['data'][0]);
+      //console.log(predictions['data'][0]);
       //console.log(rewardRedemptions);
-      console.log(rewards);
+      //console.log(rewards);
       //console.log(gameAnalytics);
       //console.log(bitsLeaderboard);
+
+      // write access token to file for testing
+      console.log(accessToken);
+      /*
+      fs.writeFile('./test.txt', accessToken, err => {
+        if (err) {
+          console.error(err);
+        }
+        // file written successfully
+      });
+      */
+
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'An error occurred while fetching test' });
@@ -217,7 +242,7 @@ app.get('/redeem/start', async function (req, res) {
   }
 });
 
-
+// post redeem - creates redeem
 app.post('/redeem', async function(req, res) {
   if(req.session && req.session.passport && req.session.passport.user) {
     try {
@@ -237,6 +262,79 @@ app.post('/redeem', async function(req, res) {
   }
   
 });
+
+// TODO:
+// create app access token getter
+// random secret creation
+// token refresher
+
+// testing webhook creation with ngrok
+app.post('/createWebhook/:broadcasterId', async function(req, res) {
+  var createWebHookParams = {
+      host: "api.twitch.tv",
+      path: "helix/eventsub/subscriptions",
+      method: 'POST',
+      headers: {
+          "Content-Type": "application/json",
+          "Client-ID": TWITCH_CLIENT_ID,
+          "Authorization": "Bearer "+ appAccessToken
+      }
+  }
+  var createWebHookBody = {
+      "type": "channel.update",
+      "version": "2",
+      "condition": {
+          "broadcaster_user_id": req.params.broadcasterId
+      },
+      "transport": {
+          "method": "webhook",
+          // For testing purposes you can use an ngrok https tunnel as your callback URL
+          "callback": NGROK_URL+"/notification", // If you change the /notification path make sure to also adjust in line 69
+          "secret": SESSION_SECRET // Replace with your own secret
+      }
+  }
+  var responseData = ""
+  var webhookReq = https.request(createWebHookParams, (result) => {
+      result.setEncoding('utf8')
+      result.on('data', function(d) {
+              responseData = responseData + d
+          })
+          .on('end', function(result) {
+              var responseBody = JSON.parse(responseData)
+              res.send(responseBody)
+          })
+  })
+  webhookReq.on('error', (e) => { console.log("Error") })
+  webhookReq.write(JSON.stringify(createWebHookBody))
+  webhookReq.end()
+})
+
+function verifySignature(messageSignature, messageID, messageTimestamp, body) {
+  let message = messageID + messageTimestamp + body
+  let signature = crypto.createHmac('sha256', SESSION_SECRET).update(message) // Remember to use the same secret set at creation
+  let expectedSignatureHeader = "sha256=" + signature.digest("hex")
+
+  return expectedSignatureHeader === messageSignature
+}
+
+app.post('/notification', (req, res) => {
+  if (!verifySignature(req.header("Twitch-Eventsub-Message-Signature"),
+          req.header("Twitch-Eventsub-Message-Id"),
+          req.header("Twitch-Eventsub-Message-Timestamp"),
+          req.rawBody)) {
+      res.status(403).send("Forbidden") // Reject requests with invalid signatures
+  } else {
+      if (req.header("Twitch-Eventsub-Message-Type") === "webhook_callback_verification") {
+          console.log(req.body.challenge)
+          res.send(req.body.challenge) // Returning a 200 status with the received challenge to complete webhook creation flow
+
+      } else if (req.header("Twitch-Eventsub-Message-Type") === "notification") {
+        console.log(req.body.subscription)
+          console.log(req.body.event) // Implement your own use case with the event data at this block
+          res.send("") // Default .send is a 200 status
+      }
+  }
+})
 
 // If user has an authenticated session, display it, otherwise display link to authenticate
 app.get('/', function (req, res) {
