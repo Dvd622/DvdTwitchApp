@@ -1,11 +1,14 @@
 // Define our dependencies
 const axios          = require('axios');
 const { noConflict } = require('handlebars');
+const https          = require('https')
 require('dotenv').config();
 
 // Define constants
 const TWITCH_CLIENT_ID = process.env.CLIENT_ID;
 const TWITCH_SECRET    = process.env.SECRET_KEY;
+const BROADCASTER_ID   = process.env.BROADCASTER_ID;
+const NGROK_URL        = process.env.NGROK_TUNNEL_URL;
 
 // Function to get channel games analytics information
 async function getAnalyticsGames(accessToken) {
@@ -177,6 +180,75 @@ async function createPrediction(accessToken, userId, predictionTitle, prediction
     return response.data;
 }
 
+/**
+ * Function to get Application Access Token
+ * @returns {
+ * access_token
+ * expires_in
+ * token_type
+ * }
+ */
+async function getAppAccessToken() {
+    const response = await axios.post(`https://id.twitch.tv/oauth2/token`, {
+            'client_id': TWITCH_CLIENT_ID,
+            'client_secret': TWITCH_SECRET,
+            'grant_type': 'client_credentials'
+        }
+    );
+    return response.data;
+}
+
+/**
+ * Function to create webhook subscription
+ * @param {*} appAccessToken 
+ * @param {*} path twitch endpoint path
+ * @param {*} broadcasterId
+ * @param {*} subscriptionType event to subscribe to
+ * @param {*} subscriptionVersion 1 or 2
+ * @param {*} sessionSecret
+ * @returns 
+*/
+function createWebhook(appAccessToken, path, broadcasterId, subscriptionType, subscriptionVersion, sessionSecret) {
+    var createWebHookParams = {
+        host: "api.twitch.tv",
+        path: path,
+        method: 'POST',
+        headers: {
+            "Content-Type": "application/json",
+            "Client-ID": TWITCH_CLIENT_ID,
+            "Authorization": "Bearer "+ appAccessToken
+        }
+    }
+    var createWebHookBody = {
+        "type": subscriptionType,
+        "version": subscriptionVersion,
+        "condition": {
+            "broadcaster_user_id": broadcasterId
+        },
+        "transport": {
+            "method": "webhook",
+            // For testing purposes you can use an ngrok https tunnel as your callback URL
+            "callback": NGROK_URL+"/notification", 
+            "secret": sessionSecret
+        }
+    }
+    var responseData = ""
+    var webhookReq = https.request(createWebHookParams, (result) => {
+        result.setEncoding('utf8')
+        result.on('data', function(d) {
+                responseData = responseData + d
+            })
+            .on('end', function(result) {
+                var responseBody = JSON.parse(responseData)
+                console.log('response data', responseData);
+            })
+    })
+    webhookReq.on('error', (e) => { console.log("Error") })
+    webhookReq.write(JSON.stringify(createWebHookBody))
+    webhookReq.end()
+    console.log('create webhook end');
+}
+
 module.exports = {
     getAnalyticsGames,
     getBitsLeaderboard,
@@ -186,5 +258,7 @@ module.exports = {
     createPrediction,
     createCustomReward,
     getCustomReward,
-    getCustomRewardRedemptions
+    getCustomRewardRedemptions,
+    getAppAccessToken,
+    createWebhook
 }

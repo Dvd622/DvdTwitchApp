@@ -16,10 +16,11 @@ require('dotenv').config();
 // Define our constants
 const TWITCH_CLIENT_ID = process.env.CLIENT_ID;
 const TWITCH_SECRET    = process.env.SECRET_KEY;
+const BROADCASTER_ID   = process.env.BROADCASTER_ID;
 const NGROK_URL        = process.env.NGROK_TUNNEL_URL;
-const SESSION_SECRET   = 'testSecret1234567890';
+const SESSION_SECRET   = crypto.randomBytes(48).toString('hex');
 const CALLBACK_URL     = 'http://localhost:3000/auth/twitch/callback';  // You can run locally with - http://localhost:3000/auth/twitch/callback
-let appAccessToken     = process.env.APP_ACCESS_TOKEN;
+var appAccessToken     = '';
 
 // Initialize Express and middlewares
 const app = express();
@@ -112,6 +113,8 @@ app.get('/test', async function (req, res) {
       const polls = await controller.getPolls(accessToken, userId);
       const rewards = await controller.getCustomReward(accessToken, userId, true);
       //const rewardRedemptions = await controller.getCustomRewardRedemptions(accessToken, userId, 'reward-id', 'UNFULFILLED')
+      const appAccessTokenObj = await controller.getAppAccessToken();
+      appAccessToken = appAccessTokenObj.access_token;
 
       var choices = [{
         'title':'Heads'
@@ -128,11 +131,9 @@ app.get('/test', async function (req, res) {
       //console.log(rewards);
       //console.log(gameAnalytics);
       //console.log(bitsLeaderboard);
-
-      // write access token to file for testing
-      console.log(accessToken);
+      
       /*
-      fs.writeFile('./test.txt', accessToken, err => {
+      fs.writeFile('./test.txt', 'test', err => {
         if (err) {
           console.error(err);
         }
@@ -220,9 +221,6 @@ app.get('/redeem', function (req, res) {
 
 // TO DO: twitch EventSub to listen/get redemption events + maybe udpate HTML page with endpoint calls
 // HTML Page update: https://stackoverflow.com/questions/43523576/update-part-of-html-page-using-node-js-and-ejs
-// Twitch EventSub: https://dev.twitch.tv/docs/eventsub/handling-webhook-events/
-// set up ngrok
-// setInterval bad sadge
 app.get('/redeem/start', async function (req, res) {
   if(req.session && req.session.passport && req.session.passport.user) {
     try {
@@ -264,49 +262,17 @@ app.post('/redeem', async function(req, res) {
 });
 
 // TODO:
-// create app access token getter
-// random secret creation
 // token refresher
+// get EventSub Subscriptions: https://dev.twitch.tv/docs/api/reference/#get-eventsub-subscriptions
+// function: refresh all event subscriptions
+// delete (one/all) eventsubs
+// pagination
 
-// testing webhook creation with ngrok
-app.post('/createWebhook/:broadcasterId', async function(req, res) {
-  var createWebHookParams = {
-      host: "api.twitch.tv",
-      path: "helix/eventsub/subscriptions",
-      method: 'POST',
-      headers: {
-          "Content-Type": "application/json",
-          "Client-ID": TWITCH_CLIENT_ID,
-          "Authorization": "Bearer "+ appAccessToken
-      }
-  }
-  var createWebHookBody = {
-      "type": "channel.update",
-      "version": "2",
-      "condition": {
-          "broadcaster_user_id": req.params.broadcasterId
-      },
-      "transport": {
-          "method": "webhook",
-          // For testing purposes you can use an ngrok https tunnel as your callback URL
-          "callback": NGROK_URL+"/notification", 
-          "secret": SESSION_SECRET 
-      }
-  }
-  var responseData = ""
-  var webhookReq = https.request(createWebHookParams, (result) => {
-      result.setEncoding('utf8')
-      result.on('data', function(d) {
-              responseData = responseData + d
-          })
-          .on('end', function(result) {
-              var responseBody = JSON.parse(responseData)
-              res.send(responseBody)
-          })
-  })
-  webhookReq.on('error', (e) => { console.log("Error") })
-  webhookReq.write(JSON.stringify(createWebHookBody))
-  webhookReq.end()
+// webhook creation with ngrok
+app.post('/createWebhook', function(req, res) {
+  webhook = controller.createWebhook(appAccessToken, "helix/eventsub/subscriptions", BROADCASTER_ID, "channel.update", "2", SESSION_SECRET)
+  console.log('webhook:', webhook);
+  res.send(webhook);
 })
 
 function verifySignature(messageSignature, messageID, messageTimestamp, body) {
@@ -318,6 +284,7 @@ function verifySignature(messageSignature, messageID, messageTimestamp, body) {
 }
 
 app.post('/notification', (req, res) => {
+  console.log('notif triggered');
   if (!verifySignature(req.header("Twitch-Eventsub-Message-Signature"),
           req.header("Twitch-Eventsub-Message-Id"),
           req.header("Twitch-Eventsub-Message-Timestamp"),
