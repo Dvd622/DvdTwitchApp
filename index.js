@@ -19,7 +19,7 @@ const TWITCH_SECRET    = process.env.SECRET_KEY;
 const NGROK_URL        = process.env.NGROK_TUNNEL_URL;
 const SESSION_SECRET   = 'testSecret1234567890';
 const CALLBACK_URL     = 'http://localhost:3000/auth/twitch/callback';  // You can run locally with - http://localhost:3000/auth/twitch/callback
-let appAccessToken = 'db3rosyuahy9l4tqzsnnd2xk1tj3e2';
+let appAccessToken     = process.env.APP_ACCESS_TOKEN;
 
 // Initialize Express and middlewares
 const app = express();
@@ -289,8 +289,8 @@ app.post('/createWebhook/:broadcasterId', async function(req, res) {
       "transport": {
           "method": "webhook",
           // For testing purposes you can use an ngrok https tunnel as your callback URL
-          "callback": NGROK_URL+"/notification", // If you change the /notification path make sure to also adjust in line 69
-          "secret": SESSION_SECRET // Replace with your own secret
+          "callback": NGROK_URL+"/notification", 
+          "secret": SESSION_SECRET 
       }
   }
   var responseData = ""
