@@ -125,12 +125,16 @@ app.get('/test', async function (req, res) {
       //const poll = await controller.createPoll(accessToken, userId, 'Heads or tails?', choices, 15);
       //const prediction = await controller.createPrediction(accessToken, userId, "Heads or tails?", choices, 30);
       const predictions = await controller.getPredictions(accessToken, userId);
+      const webhooks = await controller.getWebhooks(appAccessToken, "enabled");
+      const allWebhooks = await controller.getAllWebhooks(appAccessToken);
       res.json([polls, gameAnalytics, bitsLeaderboard, predictions]);
       //console.log(predictions['data'][0]);
       //console.log(rewardRedemptions);
       //console.log(rewards);
       //console.log(gameAnalytics);
       //console.log(bitsLeaderboard);
+      console.log(webhooks);
+      console.log(allWebhooks);
       
       /*
       fs.writeFile('./test.txt', 'test', err => {
@@ -172,6 +176,7 @@ var template = handlebars.compile(`
       <tr><td><img src={{image_url}} alt="Dvd Profile Image"></td></tr>
       <button onClick="location.href = '/test'">Click me!!!</button>
       <button onClick="location.href = '/redeem'">Custom Redeem Testing</button>
+      <button onClick="location.href = '/testing'">More Testing</button>
   </table>
 </html>
 `);
@@ -261,18 +266,83 @@ app.post('/redeem', async function(req, res) {
   
 });
 
+// more testing page - webhooks
+var testingTemplate = handlebars.compile(`
+<html>
+  <style>
+  body {background-color: #D3D3D3;}
+  </style>
+
+  <head><title>Custom Testing</title></head>
+  <p1>Delete Webhook</p>
+  <form method="POST" action="/deletewebhook" autocomplete="off">
+    <label for="webhookId">Webhook ID: </label><input id="webhookId" name="webhook" type="text">
+    <br><br>
+    <button type="submit">Delete Webhook</button>
+  </form>
+  <br><br>
+  <p1>Create Webhook</p>
+  <form method="POST" action="/createwebhook">
+    <label for="typeId">Type: </label><input id="typeId" name="type" type="text">
+    <br><br>
+    <label for="versionId">version: </label><input id="versionId" name="version" type="text">
+    <br><br>
+    <button type="submit">Create Webhook</button>
+  </form>
+</html>
+`);
+
+// testing page
+app.get('/testing', function (req, res) {
+  if(req.session && req.session.passport && req.session.passport.user) {
+    res.send(testingTemplate(req.session.passport.user));
+  } else {
+    res.redirect('/');
+  }
+});
+
+// post deletewebhook - deletes webhook with given id
+app.post('/deletewebhook', async function(req, res) {
+  if(req.session && req.session.passport && req.session.passport.user) {
+    try {
+      accessToken = req.session.passport.user.accessToken;
+      userId = req.session.passport.user.id;
+      var webhook = req.body.webhook;
+      const webhookDelete = await controller.deleteWebhook(appAccessToken, webhook);
+      res.send(req.body);
+      console.log(webhookDelete);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'An error occurred while deleting webhook' });
+    }
+  } else {
+    res.redirect('/');
+  }
+  
+});
+
 // TODO:
 // token refresher
-// get EventSub Subscriptions: https://dev.twitch.tv/docs/api/reference/#get-eventsub-subscriptions
 // function: refresh all event subscriptions
 // delete (one/all) eventsubs
 // pagination
 
 // webhook creation with ngrok
 app.post('/createWebhook', function(req, res) {
-  webhook = controller.createWebhook(appAccessToken, "helix/eventsub/subscriptions", BROADCASTER_ID, "channel.update", "2", SESSION_SECRET)
-  console.log('webhook:', webhook);
-  res.send(webhook);
+  if(req.session && req.session.passport && req.session.passport.user) {
+    try {
+      var webhookType = req.body.type;
+      var webhookVersion = req.body.version;
+      webhook = controller.createWebhook(appAccessToken, "helix/eventsub/subscriptions", BROADCASTER_ID, webhookType, webhookVersion, SESSION_SECRET);
+      console.log('webhook:', webhook);
+      res.send(webhook);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'An error occurred while creating webhook' });
+    }
+  } else {
+    res.redirect('/');
+  }
 })
 
 function verifySignature(messageSignature, messageID, messageTimestamp, body) {
@@ -308,7 +378,9 @@ app.get('/', function (req, res) {
   if(req.session && req.session.passport && req.session.passport.user) {
     res.send(template(req.session.passport.user));
   } else {
-    res.send('<html><head><title>Twitch Auth Sample</title></head> <style>body {background-color: #D3D3D3;}</style><a href="/auth/twitch">test</a><br><a href="/auth/twitch/test">test2</a></html>');
+    res.send('<html><head><title>Twitch Auth Sample</title></head> <style>body {background-color: #D3D3D3;}</style>\
+    <a href="/auth/twitch">test</a><br>\
+    </html>');
   }
 });
 

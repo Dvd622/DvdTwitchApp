@@ -249,6 +249,59 @@ function createWebhook(appAccessToken, path, broadcasterId, subscriptionType, su
     console.log('create webhook end');
 }
 
+/**
+ * Function to get all webhook subscriptions (including revoked)
+ * @param {*} appAccessToken
+ * @returns 
+*/
+async function getAllWebhooks(appAccessToken) {
+    const response = await axios.get(`https://api.twitch.tv/helix/eventsub/subscriptions`, {
+        headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${appAccessToken}`
+        },
+    });
+    return response.data;
+}
+
+/**
+ * Function to get webhook subscriptions
+ * @param {*} appAccessToken
+ * @param {*} webhookStatus
+ * @returns 
+*/
+async function getWebhooks(appAccessToken, webhookStatus) {
+    const response = await axios.get(`https://api.twitch.tv/helix/eventsub/subscriptions`, {
+        headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${appAccessToken}`
+        },
+        params: {
+            'status': webhookStatus
+        },
+    });
+    return response.data;
+}
+
+/**
+ * Function to delete webhook subscription
+ * @param {*} appAccessToken
+ * @param {*} webhookId
+ * @returns 
+*/
+async function deleteWebhook(appAccessToken, webhookId) {
+    const response = await axios.delete(`https://api.twitch.tv/helix/eventsub/subscriptions`, {
+        headers: {
+        'Client-ID': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${appAccessToken}`
+        },
+        params: {
+            'id': webhookId
+        },
+    });
+    return response.data;
+}
+
 module.exports = {
     getAnalyticsGames,
     getBitsLeaderboard,
@@ -260,5 +313,8 @@ module.exports = {
     getCustomReward,
     getCustomRewardRedemptions,
     getAppAccessToken,
-    createWebhook
+    createWebhook,
+    getAllWebhooks,
+    getWebhooks,
+    deleteWebhook
 }
